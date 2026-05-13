@@ -1,1 +1,637 @@
-hello
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Donders reaction time test</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f4ef;
+    --surface-2: #ebeae3;
+    --border: rgba(0,0,0,0.12);
+    --border-strong: rgba(0,0,0,0.25);
+    --text: #1a1a18;
+    --text-secondary: #5f5e5a;
+    --text-tertiary: #888780;
+    --info: #185FA5;
+    --success: #3B6D11;
+    --danger: #A32D2D;
+    --color-A: #534AB7;
+    --color-B: #D85A30;
+    --color-C: #1D9E75;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --surface: #232321;
+      --surface-2: #2c2c2a;
+      --border: rgba(255,255,255,0.12);
+      --border-strong: rgba(255,255,255,0.25);
+      --text: #f5f4ef;
+      --text-secondary: #b4b2a9;
+      --text-tertiary: #888780;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .container { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
+  h1 { font-size: 22px; font-weight: 500; margin: 0 0 0.5rem; }
+  .subtitle { font-size: 14px; color: var(--text-secondary); margin: 0 0 1.5rem; }
+  h2 { font-size: 16px; font-weight: 500; margin: 1.5rem 0 0.75rem; }
+
+  .task-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+  .task-card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    color: inherit;
+    transition: border-color 0.15s;
+  }
+  .task-card:hover { border-color: var(--border-strong); }
+  .task-card.active { border: 2px solid var(--info); padding: 13px; }
+  .task-letter { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .task-name { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .task-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+  .stage {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+  .prompt {
+    font-size: 15px;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 460px;
+    margin-bottom: 14px;
+  }
+  .key-row { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+  .key-hint {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    font-size: 13px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .stim-circle {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+  }
+  .fix { font-size: 32px; color: var(--text-tertiary); }
+  .trial-counter { font-size: 12px; color: var(--text-tertiary); margin-bottom: 10px; }
+  .feedback { font-size: 14px; min-height: 20px; margin-top: 12px; color: var(--text-secondary); }
+  .feedback.ok { color: var(--success); }
+  .feedback.err { color: var(--danger); }
+  .rt-readout { font-size: 36px; font-weight: 500; margin: 4px 0; }
+
+  .controls { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+  button.btn {
+    background: transparent;
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.05s;
+  }
+  button.btn:hover { background: var(--surface-2); }
+  button.btn:active { transform: scale(0.98); }
+  button.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .chart-wrap {
+    margin-top: 1.25rem;
+    padding: 16px;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .legend-dot.diamond { transform: rotate(45deg); border-radius: 2px; }
+  .legend-tri {
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 10px solid var(--color-C);
+  }
+  #chart-svg { width: 100%; height: 240px; display: block; }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+    margin: 1rem 0;
+  }
+  .metric {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .metric-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .metric-value { font-size: 20px; font-weight: 500; }
+  .metric-unit { font-size: 12px; color: var(--text-secondary); margin-left: 2px; }
+
+  .table-wrap { overflow-x: auto; }
+  table.trials {
+    width: 100%;
+    font-size: 13px;
+    border-collapse: collapse;
+    min-width: 540px;
+  }
+  table.trials th, table.trials td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 0.5px solid var(--border);
+  }
+  table.trials th {
+    font-weight: 500;
+    color: var(--text-secondary);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+  }
+  td.task-A { color: var(--color-A); font-weight: 500; }
+  td.task-B { color: var(--color-B); font-weight: 500; }
+  td.task-C { color: var(--color-C); font-weight: 500; }
+  td.outcome-ok { color: var(--success); }
+  td.outcome-err { color: var(--danger); }
+  .empty { color: var(--text-tertiary); font-size: 13px; padding: 16px 0; text-align: center; }
+
+  .notes { font-size: 12px; color: var(--text-tertiary); margin-top: 8px; line-height: 1.55; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Donders reaction time test</h1>
+  <p class="subtitle">Three task types from Donders (1868). Each correct trial appears in the chart and table as you go.</p>
+
+  <div class="task-grid" id="task-grid">
+    <button class="task-card active" data-task="A">
+      <div class="task-letter" style="color: var(--color-A);">A</div>
+      <div class="task-name">Simple</div>
+      <div class="task-desc">One stimulus, one response. Press space when the blue dot appears.</div>
+    </button>
+    <button class="task-card" data-task="C">
+      <div class="task-letter" style="color: var(--color-C);">C</div>
+      <div class="task-name">Go / no-go</div>
+      <div class="task-desc">Press space for blue. Withhold for orange.</div>
+    </button>
+    <button class="task-card" data-task="B">
+      <div class="task-letter" style="color: var(--color-B);">B</div>
+      <div class="task-name">Choice</div>
+      <div class="task-desc">Press F if blue, J if orange.</div>
+    </button>
+  </div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="controls">
+    <button class="btn" id="start-btn">Start trial</button>
+    <button class="btn" id="run-btn">Run 10 trials</button>
+    <button class="btn" id="stop-btn" disabled>Stop</button>
+    <button class="btn" id="reset-btn">Reset all data</button>
+  </div>
+
+  <h2>Live results</h2>
+  <div class="summary-grid" id="summary-grid"></div>
+
+  <div class="chart-wrap">
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background: var(--color-A);"></span>A — simple</span>
+      <span class="legend-item"><span class="legend-tri"></span>C — go/no-go</span>
+      <span class="legend-item"><span class="legend-dot diamond" style="background: var(--color-B);"></span>B — choice</span>
+    </div>
+    <svg id="chart-svg" viewBox="0 0 800 240" preserveAspectRatio="none"></svg>
+    <div class="notes">Each correct trial is one point. Dashed vertical lines mark the running mean RT per task.</div>
+  </div>
+
+  <h2>Trial log</h2>
+  <div class="table-wrap">
+    <table class="trials" id="trials-table">
+      <thead>
+        <tr><th>#</th><th>Task</th><th>Stimulus</th><th>Response</th><th>RT</th><th>Outcome</th></tr>
+      </thead>
+      <tbody id="trials-tbody"></tbody>
+    </table>
+    <div class="empty" id="trials-empty">No trials yet. Pick a task above and press start.</div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  const MIN_ISI = 1200;
+  const MAX_ISI = 2800;
+  const MAX_RT = 1500;
+  const FEEDBACK_DURATION = 700;
+
+  const COLORS = { A: '#534AB7', B: '#D85A30', C: '#1D9E75' };
+
+  let currentTask = 'A';
+  let state = 'idle';
+  let trials = [];
+  let trialCounter = 0;
+  let currentTrial = null;
+  let stimTimer = null;
+  let timeoutTimer = null;
+  let runQueue = 0;
+
+  const stage = document.getElementById('stage');
+  const taskGrid = document.getElementById('task-grid');
+  const startBtn = document.getElementById('start-btn');
+  const runBtn = document.getElementById('run-btn');
+  const stopBtn = document.getElementById('stop-btn');
+  const resetBtn = document.getElementById('reset-btn');
+  const summaryGrid = document.getElementById('summary-grid');
+  const chartSvg = document.getElementById('chart-svg');
+  const tbody = document.getElementById('trials-tbody');
+  const emptyMsg = document.getElementById('trials-empty');
+
+  function setTask(t) {
+    if (state !== 'idle') return;
+    currentTask = t;
+    document.querySelectorAll('.task-card').forEach(c => {
+      c.classList.toggle('active', c.dataset.task === t);
+    });
+    renderIdle();
+  }
+
+  taskGrid.addEventListener('click', (e) => {
+    const card = e.target.closest('.task-card');
+    if (card) setTask(card.dataset.task);
+  });
+
+  function keyHints(task) {
+    if (task === 'A') return '<span class="key-hint">space</span>';
+    if (task === 'B') return '<span class="key-hint">F = blue</span><span class="key-hint">J = orange</span>';
+    if (task === 'C') return '<span class="key-hint">space = blue only</span>';
+    return '';
+  }
+  function taskPrompt(task) {
+    if (task === 'A') return 'Simple reaction. Press space the instant the blue dot appears.';
+    if (task === 'B') return 'Choice reaction. Press F for blue, J for orange.';
+    if (task === 'C') return 'Go / no-go. Press space for blue. Do nothing for orange.';
+    return '';
+  }
+
+  function renderIdle() {
+    stage.innerHTML = '';
+    const p = document.createElement('div');
+    p.className = 'prompt';
+    p.textContent = taskPrompt(currentTask);
+    stage.appendChild(p);
+    const k = document.createElement('div');
+    k.className = 'key-row';
+    k.innerHTML = keyHints(currentTask);
+    stage.appendChild(k);
+    const f = document.createElement('div');
+    f.className = 'feedback';
+    f.textContent = 'Press space or click start trial.';
+    stage.appendChild(f);
+  }
+
+  function renderFixation() {
+    stage.innerHTML = '';
+    const tc = document.createElement('div');
+    tc.className = 'trial-counter';
+    tc.textContent = 'task ' + currentTask + ' — trial ' + (trialCounter + 1);
+    stage.appendChild(tc);
+    const fix = document.createElement('div');
+    fix.className = 'fix';
+    fix.textContent = '+';
+    stage.appendChild(fix);
+  }
+
+  function renderStimulus(color) {
+    stage.innerHTML = '';
+    const tc = document.createElement('div');
+    tc.className = 'trial-counter';
+    tc.textContent = 'task ' + currentTask + ' — trial ' + (trialCounter + 1);
+    stage.appendChild(tc);
+    const dot = document.createElement('div');
+    dot.className = 'stim-circle';
+    dot.style.background = color === 'blue' ? '#378ADD' : '#EF9F27';
+    stage.appendChild(dot);
+  }
+
+  function renderResult(rt, ok, msg) {
+    stage.innerHTML = '';
+    if (rt !== null) {
+      const v = document.createElement('div');
+      v.className = 'rt-readout';
+      v.style.color = ok ? 'var(--success)' : 'var(--danger)';
+      v.textContent = Math.round(rt) + ' ms';
+      stage.appendChild(v);
+    }
+    const f = document.createElement('div');
+    f.className = 'feedback ' + (ok ? 'ok' : 'err');
+    f.textContent = msg;
+    stage.appendChild(f);
+  }
+
+  function startSingleTrial() {
+    if (state !== 'idle') return;
+    runQueue = 0;
+    runOneTrial();
+  }
+
+  function startBatch() {
+    if (state !== 'idle') return;
+    runQueue = 10;
+    stopBtn.disabled = false;
+    runOneTrial();
+  }
+
+  function runOneTrial() {
+    state = 'running';
+    startBtn.disabled = true;
+    runBtn.disabled = true;
+
+    let stim;
+    if (currentTask === 'A') {
+      stim = 'blue';
+    } else {
+      stim = Math.random() < 0.5 ? 'blue' : 'orange';
+    }
+    currentTrial = { task: currentTask, stim, rt: null, correct: null };
+    renderFixation();
+
+    const isi = MIN_ISI + Math.random() * (MAX_ISI - MIN_ISI);
+    stimTimer = setTimeout(() => {
+      currentTrial.stimTime = performance.now();
+      renderStimulus(currentTrial.stim);
+      timeoutTimer = setTimeout(handleTimeout, MAX_RT);
+    }, isi);
+  }
+
+  function handleTimeout() {
+    if (currentTask === 'C' && currentTrial.stim === 'orange') {
+      currentTrial.correct = true;
+      currentTrial.rt = null;
+      currentTrial.response = '(withheld)';
+      finishTrial('Correctly withheld', true);
+    } else {
+      currentTrial.correct = false;
+      currentTrial.rt = null;
+      currentTrial.response = '(none)';
+      finishTrial('Too slow', false);
+    }
+  }
+
+  function handleResponse(key) {
+    if (state !== 'running' || !currentTrial || !currentTrial.stimTime) return;
+    const rt = performance.now() - currentTrial.stimTime;
+    clearTimeout(timeoutTimer);
+    currentTrial.rt = rt;
+    currentTrial.response = key === ' ' ? 'space' : key.toUpperCase();
+
+    let ok = false, msg = '';
+    if (currentTask === 'A') {
+      if (key === ' ') { ok = true; msg = Math.round(rt) + ' ms'; }
+      else { msg = 'Wrong key'; }
+    } else if (currentTask === 'B') {
+      const expected = currentTrial.stim === 'blue' ? 'f' : 'j';
+      if (key === expected) { ok = true; msg = Math.round(rt) + ' ms'; }
+      else { msg = 'Wrong key'; }
+    } else if (currentTask === 'C') {
+      if (key === ' ') {
+        if (currentTrial.stim === 'blue') { ok = true; msg = Math.round(rt) + ' ms'; }
+        else { msg = 'False alarm — should have withheld'; }
+      } else { msg = 'Wrong key'; }
+    }
+    currentTrial.correct = ok;
+    finishTrial(msg, ok);
+  }
+
+  function finishTrial(msg, ok) {
+    trialCounter++;
+    trials.push(Object.assign({ index: trialCounter }, currentTrial));
+    renderResult(currentTrial.rt, ok, msg);
+    updateAll();
+    state = 'feedback';
+
+    setTimeout(() => {
+      if (runQueue > 1) {
+        runQueue--;
+        runOneTrial();
+      } else {
+        runQueue = 0;
+        state = 'idle';
+        startBtn.disabled = false;
+        runBtn.disabled = false;
+        stopBtn.disabled = true;
+        setTimeout(() => { if (state === 'idle') renderIdle(); }, 600);
+      }
+    }, FEEDBACK_DURATION);
+  }
+
+  function stopRun() {
+    runQueue = 0;
+    stopBtn.disabled = true;
+  }
+
+  function resetAll() {
+    if (state !== 'idle') return;
+    trials = [];
+    trialCounter = 0;
+    updateAll();
+    renderIdle();
+  }
+
+  function summarize(task) {
+    const ts = trials.filter(t => t.task === task);
+    const correct = ts.filter(t => t.correct === true);
+    const rts = correct.filter(t => t.rt !== null).map(t => t.rt);
+    const mean = rts.length ? rts.reduce((a,b) => a+b, 0) / rts.length : null;
+    const sd = rts.length > 1 ? Math.sqrt(rts.reduce((a,b) => a + (b-mean)**2, 0) / (rts.length-1)) : null;
+    const acc = ts.length ? (correct.length / ts.length) * 100 : null;
+    return { task, n: ts.length, nCorrect: correct.length, mean, sd, acc, rts };
+  }
+
+  function renderSummary() {
+    const sA = summarize('A');
+    const sB = summarize('B');
+    const sC = summarize('C');
+    const fmt = (s) => {
+      const mean = s.mean !== null ? Math.round(s.mean) + ' ms' : '—';
+      const acc = s.acc !== null ? Math.round(s.acc) + '%' : '—';
+      return `<div class="metric-label">Task ${s.task} — ${s.n} trial${s.n===1?'':'s'}</div>
+              <div class="metric-value" style="color: ${COLORS[s.task]};">${mean}</div>
+              <div class="metric-unit">accuracy ${acc}</div>`;
+    };
+    let html = `<div class="metric">${fmt(sA)}</div>
+                <div class="metric">${fmt(sC)}</div>
+                <div class="metric">${fmt(sB)}</div>`;
+    if (sA.mean !== null && sC.mean !== null) {
+      html += `<div class="metric">
+        <div class="metric-label">C − A</div>
+        <div class="metric-value">${Math.round(sC.mean - sA.mean)}<span class="metric-unit">ms</span></div>
+        <div class="metric-unit">discrimination</div></div>`;
+    }
+    if (sB.mean !== null && sC.mean !== null) {
+      html += `<div class="metric">
+        <div class="metric-label">B − C</div>
+        <div class="metric-value">${Math.round(sB.mean - sC.mean)}<span class="metric-unit">ms</span></div>
+        <div class="metric-unit">response selection</div></div>`;
+    }
+    summaryGrid.innerHTML = html;
+  }
+
+  function renderChart() {
+    const W = 800, H = 240;
+    const padL = 40, padR = 20, padT = 20, padB = 36;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+
+    const correctTrials = trials.filter(t => t.correct === true && t.rt !== null);
+    let minRT = 100, maxRT = 700;
+    if (correctTrials.length > 0) {
+      const rtVals = correctTrials.map(t => t.rt);
+      const dmin = Math.min(...rtVals);
+      const dmax = Math.max(...rtVals);
+      minRT = Math.max(0, Math.floor((dmin - 50) / 50) * 50);
+      maxRT = Math.ceil((dmax + 50) / 50) * 50;
+      if (maxRT - minRT < 200) maxRT = minRT + 200;
+    }
+
+    const xScale = (rt) => padL + ((rt - minRT) / (maxRT - minRT)) * innerW;
+    const yFor = (task) => {
+      if (task === 'A') return padT + innerH * 0.25;
+      if (task === 'C') return padT + innerH * 0.5;
+      return padT + innerH * 0.75;
+    };
+
+    let svg = '';
+
+    const tickStep = (maxRT - minRT) <= 400 ? 50 : 100;
+    for (let v = minRT; v <= maxRT; v += tickStep) {
+      const x = xScale(v);
+      svg += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT+innerH}" stroke="rgba(127,127,127,0.15)" stroke-width="1"/>`;
+      svg += `<text x="${x}" y="${H - padB + 16}" text-anchor="middle" font-size="11" fill="var(--text-secondary)">${v}</text>`;
+    }
+    svg += `<text x="${padL + innerW/2}" y="${H - 6}" text-anchor="middle" font-size="12" fill="var(--text-secondary)">RT (ms)</text>`;
+
+    ['A','C','B'].forEach(t => {
+      const y = yFor(t);
+      svg += `<line x1="${padL}" y1="${y}" x2="${padL+innerW}" y2="${y}" stroke="rgba(127,127,127,0.12)" stroke-width="0.5"/>`;
+      svg += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-size="12" font-weight="500" fill="${COLORS[t]}">${t}</text>`;
+    });
+
+    ['A','B','C'].forEach(t => {
+      const s = summarize(t);
+      if (s.mean !== null) {
+        const x = xScale(s.mean);
+        const y = yFor(t);
+        svg += `<line x1="${x}" y1="${y-12}" x2="${x}" y2="${y+12}" stroke="${COLORS[t]}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+      }
+    });
+
+    correctTrials.forEach(t => {
+      const x = xScale(t.rt);
+      const y = yFor(t.task);
+      const color = COLORS[t.task];
+      if (t.task === 'A') {
+        svg += `<circle cx="${x}" cy="${y}" r="5" fill="${color}" fill-opacity="0.7" stroke="${color}" stroke-width="1"/>`;
+      } else if (t.task === 'B') {
+        svg += `<rect x="${x-5}" y="${y-5}" width="10" height="10" transform="rotate(45 ${x} ${y})" fill="${color}" fill-opacity="0.7" stroke="${color}" stroke-width="1"/>`;
+      } else {
+        const sz = 6;
+        svg += `<polygon points="${x},${y-sz} ${x-sz},${y+sz*0.6} ${x+sz},${y+sz*0.6}" fill="${color}" fill-opacity="0.7" stroke="${color}" stroke-width="1"/>`;
+      }
+    });
+
+    chartSvg.innerHTML = svg;
+  }
+
+  function renderTable() {
+    if (trials.length === 0) {
+      tbody.innerHTML = '';
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+    const rows = trials.slice().reverse().slice(0, 50);
+    let html = '';
+    rows.forEach(t => {
+      const rtCell = t.rt !== null ? Math.round(t.rt) + ' ms' : '—';
+      const outcomeCls = t.correct ? 'outcome-ok' : 'outcome-err';
+      const outcomeText = t.correct ? 'correct' : 'error';
+      html += `<tr>
+        <td>${t.index}</td>
+        <td class="task-${t.task}">${t.task}</td>
+        <td>${t.stim}</td>
+        <td>${t.response || '—'}</td>
+        <td>${rtCell}</td>
+        <td class="${outcomeCls}">${outcomeText}</td>
+      </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+
+  function updateAll() {
+    renderSummary();
+    renderChart();
+    renderTable();
+  }
+
+  startBtn.addEventListener('click', startSingleTrial);
+  runBtn.addEventListener('click', startBatch);
+  stopBtn.addEventListener('click', stopRun);
+  resetBtn.addEventListener('click', resetAll);
+
+  document.addEventListener('keydown', (e) => {
+    if (state === 'idle' && e.key === ' ' && document.activeElement.tagName !== 'BUTTON') {
+      e.preventDefault();
+      startSingleTrial();
+      return;
+    }
+    if (state === 'running' && currentTrial && currentTrial.stimTime) {
+      const k = e.key.toLowerCase();
+      if (k === ' ' || k === 'f' || k === 'j') {
+        e.preventDefault();
+        handleResponse(k);
+      }
+    }
+  });
+
+  renderIdle();
+  updateAll();
+})();
+</script>
+</body>
+</html>
