@@ -237,7 +237,7 @@
       <span class="legend-item"><span class="legend-dot diamond" style="background: var(--color-B);"></span>B — choice</span>
     </div>
     <svg id="chart-svg" viewBox="0 0 800 240" preserveAspectRatio="none"></svg>
-    <div class="notes">Each correct trial is one point. Dashed vertical lines mark the running mean RT per task.</div>
+    <div class="notes">Each trial is one point: filled = correct, hollow = error. Dashed vertical lines mark the running mean RT (correct trials only) per task.</div>
   </div>
 
   <h2>Trial log</h2>
@@ -518,10 +518,10 @@
     const innerW = W - padL - padR;
     const innerH = H - padT - padB;
 
-    const correctTrials = trials.filter(t => t.correct === true && t.rt !== null);
+    const plottedTrials = trials.filter(t => t.rt !== null);
     let minRT = 100, maxRT = 700;
-    if (correctTrials.length > 0) {
-      const rtVals = correctTrials.map(t => t.rt);
+    if (plottedTrials.length > 0) {
+      const rtVals = plottedTrials.map(t => t.rt);
       const dmin = Math.min(...rtVals);
       const dmax = Math.max(...rtVals);
       minRT = Math.max(0, Math.floor((dmin - 50) / 50) * 50);
@@ -561,17 +561,21 @@
       }
     });
 
-    correctTrials.forEach(t => {
+    plottedTrials.forEach(t => {
       const x = xScale(t.rt);
       const y = yFor(t.task);
       const color = COLORS[t.task];
+      const ok = t.correct === true;
+      const fill = ok ? color : 'none';
+      const fillOp = ok ? '0.7' : '1';
+      const strokeW = ok ? 1 : 1.5;
       if (t.task === 'A') {
-        svg += `<circle cx="${x}" cy="${y}" r="5" fill="${color}" fill-opacity="0.7" stroke="${color}" stroke-width="1"/>`;
+        svg += `<circle cx="${x}" cy="${y}" r="5" fill="${fill}" fill-opacity="${fillOp}" stroke="${color}" stroke-width="${strokeW}"/>`;
       } else if (t.task === 'B') {
-        svg += `<rect x="${x-5}" y="${y-5}" width="10" height="10" transform="rotate(45 ${x} ${y})" fill="${color}" fill-opacity="0.7" stroke="${color}" stroke-width="1"/>`;
+        svg += `<rect x="${x-5}" y="${y-5}" width="10" height="10" transform="rotate(45 ${x} ${y})" fill="${fill}" fill-opacity="${fillOp}" stroke="${color}" stroke-width="${strokeW}"/>`;
       } else {
         const sz = 6;
-        svg += `<polygon points="${x},${y-sz} ${x-sz},${y+sz*0.6} ${x+sz},${y+sz*0.6}" fill="${color}" fill-opacity="0.7" stroke="${color}" stroke-width="1"/>`;
+        svg += `<polygon points="${x},${y-sz} ${x-sz},${y+sz*0.6} ${x+sz},${y+sz*0.6}" fill="${fill}" fill-opacity="${fillOp}" stroke="${color}" stroke-width="${strokeW}"/>`;
       }
     });
 
