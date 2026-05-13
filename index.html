@@ -237,7 +237,7 @@
       <span class="legend-item"><span class="legend-dot diamond" style="background: var(--color-B);"></span>B — choice</span>
     </div>
     <svg id="chart-svg" viewBox="0 0 800 240" preserveAspectRatio="none"></svg>
-    <div class="notes">Each trial is one point: filled = correct, hollow = error. Dashed vertical lines mark the running mean RT (correct trials only) per task.</div>
+    <div class="notes">Each trial is one point: filled = correct, hollow = error. Negative RTs are premature presses, measured from stimulus onset. Dashed vertical lines mark the running mean RT (correct trials only) per task.</div>
   </div>
 
   <h2>Trial log</h2>
@@ -390,6 +390,7 @@
     }
     currentTrial = { task: currentTask, stim, rt: null, correct: null };
     renderFixation();
+    currentTrial.fixTime = performance.now();
 
     const isi = MIN_ISI + Math.random() * (MAX_ISI - MIN_ISI);
     stimTimer = setTimeout(() => {
@@ -411,6 +412,18 @@
       currentTrial.response = '(none)';
       finishTrial('Too slow', false);
     }
+  }
+
+  function handlePremature(key) {
+    if (state !== 'running' || !currentTrial || currentTrial.stimTime) return;
+    clearTimeout(stimTimer);
+    clearTimeout(timeoutTimer);
+    const sinceFix = performance.now() - currentTrial.fixTime;
+    currentTrial.rt = -sinceFix;
+    currentTrial.response = key === ' ' ? 'space' : key.toUpperCase();
+    currentTrial.correct = false;
+    currentTrial.premature = true;
+    finishTrial('Premature — pressed before stimulus', false);
   }
 
   function handleResponse(key) {
@@ -524,8 +537,9 @@
       const rtVals = plottedTrials.map(t => t.rt);
       const dmin = Math.min(...rtVals);
       const dmax = Math.max(...rtVals);
-      minRT = Math.max(0, Math.floor((dmin - 50) / 50) * 50);
+      minRT = Math.floor((dmin - 50) / 50) * 50;
       maxRT = Math.ceil((dmax + 50) / 50) * 50;
+      if (minRT >= 0) minRT = Math.max(0, minRT);
       if (maxRT - minRT < 200) maxRT = minRT + 200;
     }
 
@@ -538,11 +552,18 @@
 
     let svg = '';
 
-    const tickStep = (maxRT - minRT) <= 400 ? 50 : 100;
-    for (let v = minRT; v <= maxRT; v += tickStep) {
+    const range = maxRT - minRT;
+    const tickStep = range <= 400 ? 50 : range <= 1000 ? 100 : 200;
+    const firstTick = Math.ceil(minRT / tickStep) * tickStep;
+    for (let v = firstTick; v <= maxRT; v += tickStep) {
       const x = xScale(v);
       svg += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT+innerH}" stroke="rgba(127,127,127,0.15)" stroke-width="1"/>`;
       svg += `<text x="${x}" y="${H - padB + 16}" text-anchor="middle" font-size="11" fill="var(--text-secondary)">${v}</text>`;
+    }
+    if (minRT < 0) {
+      const x0 = xScale(0);
+      svg += `<line x1="${x0}" y1="${padT}" x2="${x0}" y2="${padT+innerH}" stroke="var(--text-tertiary)" stroke-width="1" stroke-dasharray="2 3"/>`;
+      svg += `<text x="${x0}" y="${padT - 6}" text-anchor="middle" font-size="10" fill="var(--text-tertiary)">stimulus onset</text>`;
     }
     svg += `<text x="${padL + innerW/2}" y="${H - 6}" text-anchor="middle" font-size="12" fill="var(--text-secondary)">RT (ms)</text>`;
 
@@ -594,7 +615,7 @@
     rows.forEach(t => {
       const rtCell = t.rt !== null ? Math.round(t.rt) + ' ms' : '—';
       const outcomeCls = t.correct ? 'outcome-ok' : 'outcome-err';
-      const outcomeText = t.correct ? 'correct' : 'error';
+      const outcomeText = t.correct ? 'correct' : (t.premature ? 'premature' : 'error');
       html += `<tr>
         <td>${t.index}</td>
         <td class="task-${t.task}">${t.task}</td>
@@ -624,11 +645,14 @@
       startSingleTrial();
       return;
     }
-    if (state === 'running' && currentTrial && currentTrial.stimTime) {
+    if (state === 'running' && currentTrial) {
       const k = e.key.toLowerCase();
-      if (k === ' ' || k === 'f' || k === 'j') {
-        e.preventDefault();
+      if (k !== ' ' && k !== 'f' && k !== 'j') return;
+      e.preventDefault();
+      if (currentTrial.stimTime) {
         handleResponse(k);
+      } else if (currentTrial.fixTime) {
+        handlePremature(k);
       }
     }
   });
